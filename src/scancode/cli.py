@@ -48,7 +48,9 @@ from click.termui import style
 
 from commoncode import filetype
 from commoncode import fileutils
+from commoncode.fileutils import path_to_unicode
 from commoncode import ignore
+from commoncode.system import on_linux
 
 import plugincode.output
 import plugincode.post_scan
@@ -341,7 +343,7 @@ def validate_exclusive(ctx, exclusive_options):
 @click.pass_context
 
 # ensure that the input path is always Unicode
-@click.argument('input', metavar='<input>', type=click.Path(exists=True, readable=True, path_type=str))
+@click.argument('input', metavar='<input>', type=click.Path(exists=True, readable=True, path_type=fileutils.PATH_TYPE))
 @click.argument('output_file', default='-', metavar='<output_file>', type=click.File(mode='wb', lazy=False))
 
 # Note that click's 'default' option is set to 'false' here despite these being documented to be enabled by default in
@@ -539,7 +541,7 @@ def scan(input_path,
     """
     assert scans_cache_class
     scan_summary = OrderedDict()
-    scan_summary['scanned_path'] = input_path
+    scan_summary['scanned_path'] = fileutils.path_to_unicode(input_path)
     scan_summary['processes'] = processes
 
     # Display scan start details
@@ -574,7 +576,8 @@ def scan(input_path,
     logfile_path = scans_cache_class().cache_files_log
     paths_with_error = []
     files_count = 0
-    with codecs.open(logfile_path, 'w', encoding='utf-8') as logfile_fd:
+
+    with codecs.open(logfile_path, 'wb', encoding='utf-8') as logfile_fd:
 
         logged_resources = _resource_logger(logfile_fd, resources)
 
@@ -608,7 +611,7 @@ def scan(input_path,
                     return ''
                 _scan_success, _scanned_path = item
                 if verbose:
-                    _progress_line = _scanned_path
+                    _progress_line = path_to_unicode(_scanned_path)
                 else:
                     _progress_line = fixed_width_file_name(_scanned_path, max_file_name_len)
                 return style('Scanned: ') + style(_progress_line, fg=_scan_success and 'green' or 'red')
@@ -643,6 +646,8 @@ def scan(input_path,
     # Compute stats
     ##########################
     scan_summary['files_count'] = files_count
+    if on_linux:
+        paths_with_error = [path_to_unicode(p) for p in paths_with_error]
     scan_summary['files_with_errors'] = paths_with_error
     total_time = time() - scan_start
     scanning_time = total_time - indexing_time
@@ -728,8 +733,14 @@ def _scanit(paths, scanners, scans_cache_class, diag, timeout=DEFAULT_TIMEOUT, p
     abs_path, rel_path = paths
     # always fetch infos and cache.
     infos = OrderedDict()
+
     infos['path'] = rel_path
     infos.update(scan_infos(abs_path, diag=diag))
+
+    if on_linux:
+        # convert path parts to unicode at last
+        for key in ('path', 'name', 'base_name', 'extension'):
+            infos[key] = path_to_unicode(infos[key])
 
     success = True
     scans_cache = scans_cache_class()
