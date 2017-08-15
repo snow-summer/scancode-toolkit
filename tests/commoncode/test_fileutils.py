@@ -529,6 +529,25 @@ class TestFileUtils(FileBasedTesting):
         result = list(fileutils.file_iter(test_dir))
         assert 1 == len(result)
 
+    def test_path_dot_py_can_walk_non_utf8_path_from_unicode_path(self):
+        from path import Path
+        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz', use_byte_paths=True)
+        test_dir = join(test_dir, 'non_unicode')
+
+        test_dir = unicode(test_dir)
+        test_dir = Path(test_dir)
+        result = list(test_dir.walkfiles())
+        assert 1 == len(result)
+
+    def test_path_dot_py_can_walk_non_utf8_path_from_bytes_path(self):
+        from path import Path
+        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz', use_byte_paths=True)
+        test_dir = join(test_dir, 'non_unicode')
+
+        test_dir = Path(test_dir)
+        result = list(test_dir.walkfiles())
+        assert 1 == len(result)
+
 
 class TestBaseName(FileBasedTesting):
     test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
