@@ -33,8 +33,6 @@ import re
 import shutil
 import sys
 
-from text_unidecode import unidecode
-
 from commoncode import fileutils
 from commoncode.text import toascii
 
