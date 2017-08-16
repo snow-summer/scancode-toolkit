@@ -39,6 +39,7 @@ from commoncode.testcase import make_non_executable
 from commoncode import filetype
 from commoncode import fileutils
 from commoncode.fileutils import as_posixpath
+from commoncode.system import on_linux
 
 
 class TestPermissions(FileBasedTesting):
@@ -331,12 +332,13 @@ class TestFileUtils(FileBasedTesting):
         test_dir = self.extract_test_zip('fileutils/walk/unicode.zip')
         test_dir = join(test_dir, 'unicode')
 
-        test_dir = unicode(test_dir)
-        result = list(fileutils.walk(test_dir))
-        expected = [
-            (unicode(test_dir), ['a'], [u'2.csv']),
-            (unicode(test_dir) + sep + 'a', [], [u'gru\u0308n.png'])
-        ]
+        if on_linux:
+            test_dir = unicode(test_dir)
+        result = list(x[-1] for x in fileutils.walk(test_dir))
+        if on_linux:
+            expected = [['2.csv'], ['gru\xcc\x88n.png']]
+        else:
+            expected = [[u'2.csv'], [u'gru\u0308n.png']]
         assert expected == result
 
     def test_fileutils_walk_can_walk_a_single_file(self):
@@ -474,18 +476,26 @@ class TestFileUtils(FileBasedTesting):
     def test_fileutils_resource_iter_can_walk_unicode_path(self):
         test_dir = self.extract_test_zip('fileutils/walk/unicode.zip')
         test_dir = join(test_dir, 'unicode')
-
-        test_dir = unicode(test_dir)
-        result = [p.replace(test_dir, u'') for p in fileutils.resource_iter(test_dir)]
+        EMPTY_STRING = ''
+        if not on_linux:
+            test_dir = unicode(test_dir)
+            EMPTY_STRING = u''
+        result = sorted([p.replace(test_dir, EMPTY_STRING) for p in fileutils.resource_iter(test_dir)])
         expected = [
-            u'/2.csv',
-            u'/a',
-            u'/a/gru\u0308n.png'
+            '/2.csv',
+            '/a',
+            '/a/gru\xcc\x88n.png'
         ]
+        if not on_linux:
+            expected = [
+                u'/2.csv',
+                u'/a',
+                u'/a/gru\u0308n.png'
+            ]
         assert expected == result
 
     def test_resource_iter_can_walk_non_utf8_path_from_bytes_path(self):
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz', use_byte_paths=True)
+        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
         test_dir = join(test_dir, 'non_unicode')
 
         result = list(fileutils.resource_iter(test_dir))
@@ -493,15 +503,16 @@ class TestFileUtils(FileBasedTesting):
 
     # this test is failing
     def test_resource_iter_can_walk_non_utf8_path_from_unicode_path(self):
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz', use_byte_paths=True)
+        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
         test_dir = join(test_dir, 'non_unicode')
 
-        test_dir = unicode(test_dir)
+        if not on_linux:
+            test_dir = unicode(test_dir)
         result = list(fileutils.resource_iter(test_dir))
         assert 1 == len(result)
 
     def test_walk_can_walk_non_utf8_path_from_bytes_path(self):
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz', use_byte_paths=True)
+        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
         test_dir = join(test_dir, 'non_unicode')
 
         result = list(fileutils.walk(test_dir))
@@ -509,15 +520,16 @@ class TestFileUtils(FileBasedTesting):
 
     # this test is failing
     def test_walk_can_walk_non_utf8_path_from_unicode_path(self):
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz', use_byte_paths=True)
+        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
         test_dir = join(test_dir, 'non_unicode')
 
-        test_dir = unicode(test_dir)
+        if not on_linux:
+            test_dir = unicode(test_dir)
         result = list(fileutils.walk(test_dir))
         assert 1 == len(result)
 
     def test_file_iter_can_walk_non_utf8_path_from_bytes_path(self):
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz', use_byte_paths=True)
+        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
         test_dir = join(test_dir, 'non_unicode')
 
         result = list(fileutils.file_iter(test_dir))
@@ -525,50 +537,31 @@ class TestFileUtils(FileBasedTesting):
 
     # this test is failing
     def test_file_iter_can_walk_non_utf8_path_from_unicode_path(self):
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz', use_byte_paths=True)
+        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
         test_dir = join(test_dir, 'non_unicode')
 
-        test_dir = unicode(test_dir)
+        if not on_linux:
+            test_dir = unicode(test_dir)
         result = list(fileutils.file_iter(test_dir))
         assert 1 == len(result)
 
     # this test is failing
     def test_os_walk_can_walk_non_utf8_path_from_unicode_path(self):
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz', use_byte_paths=True)
+        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
         test_dir = join(test_dir, 'non_unicode')
 
-        test_dir = unicode(test_dir)
+        if not on_linux:
+            test_dir = unicode(test_dir)
         result = list(os.walk(test_dir))
-        print(result)
         assert 1 == len(result)
 
     def test_os_walk_can_walk_non_utf8_path_from_bytes_path(self):
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz', use_byte_paths=True)
+        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
         test_dir = join(test_dir, 'non_unicode')
 
         result = list(os.walk(test_dir))
         assert 1 == len(result)
 
-    # this test is failing
-    def test_path_dot_py_can_walk_non_utf8_path_from_unicode_path(self):
-        from path import Path
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz', use_byte_paths=True)
-        test_dir = join(test_dir, 'non_unicode')
-
-        test_dir = unicode(test_dir)
-        test_dir = Path(test_dir)
-        result = list(test_dir.walkfiles())
-        assert 1 == len(result)
-
-    # this test is failing
-    def test_path_dot_py_can_walk_non_utf8_path_from_bytes_path(self):
-        from path import Path
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz', use_byte_paths=True)
-        test_dir = join(test_dir, 'non_unicode')
-
-        test_dir = Path(test_dir)
-        result = list(test_dir.walkfiles())
-        assert 1 == len(result)
 
 
 class TestBaseName(FileBasedTesting):

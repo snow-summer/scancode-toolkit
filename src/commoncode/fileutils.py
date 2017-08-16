@@ -87,6 +87,7 @@ def create_dir(location):
     are readable and writeable.
     Raise Exceptions if it fails to create the directory.
     """
+
     if os.path.exists(location):
         if not os.path.isdir(location):
             err = ('Cannot create directory: existing file '
@@ -96,6 +97,8 @@ def create_dir(location):
         # may fail on win if the path is too long
         # FIXME: consider using UNC ?\\ paths
 
+        if on_linux:
+            location = path_to_bytes(location)
         try:
             os.makedirs(location)
             chmod(location, RW, recurse=False)
@@ -125,6 +128,8 @@ def system_temp_dir():
     if not temp_dir:
         sc = text.python_safe_name('scancode_' + system.username)
         temp_dir = os.path.join(tempfile.gettempdir(), sc)
+    if on_linux:
+        temp_dir = path_to_bytes(temp_dir)
     create_dir(temp_dir)
     return temp_dir
 
@@ -135,6 +140,9 @@ def get_temp_dir(base_dir, prefix=''):
     the system-wide `system_temp_dir` temp directory as a subdir of the
     base_dir path (a path relative to the `system_temp_dir`).
     """
+    if on_linux:
+        base_dir = path_to_bytes(base_dir)
+        prefix = path_to_bytes(prefix)
     base = os.path.join(system_temp_dir(), base_dir)
     create_dir(base)
     return tempfile.mkdtemp(prefix=prefix, dir=base)
@@ -164,6 +172,8 @@ def _text(location, encoding, universal_new_lines=True):
     Note:  Universal newlines in the codecs package was removed in
     Python2.6 see http://bugs.python.org/issue691291
     """
+    if on_linux:
+        location = path_to_bytes(location)
     with codecs.open(location, 'r', encoding) as f:
         text = f.read()
         if universal_new_lines:
@@ -387,6 +397,9 @@ def walk(location, ignored=ignore_nothing):
        callable on files and directories returning True if it should be ignored.
      - location is a directory or a file: for a file, the file is returned.
     """
+    if on_linux:
+        location = path_to_bytes(location)
+
     # TODO: consider using the new "scandir" module for some speed-up.
     if DEBUG:
         ign = ignored(location)
@@ -429,6 +442,9 @@ def file_iter(location, ignored=ignore_nothing):
                     if the location should be ignored.
     :return: an iterable of file locations.
     """
+    if on_linux:
+        location = path_to_bytes(location)
+
     return resource_iter(location, ignored, with_dirs=False)
 
 
@@ -441,6 +457,8 @@ def dir_iter(location, ignored=ignore_nothing):
                     if the location should be ignored.
     :return: an iterable of directory locations.
     """
+    if on_linux:
+        location = path_to_bytes(location)
     return resource_iter(location, ignored, with_files=False)
 
 
@@ -456,6 +474,8 @@ def resource_iter(location, ignored=ignore_nothing, with_files=True, with_dirs=T
     :return: an iterable of file and directory locations.
     """
     assert with_dirs or with_files, "fileutils.resource_iter: One or both of 'with_dirs' and 'with_files' is required"
+    if on_linux:
+        location = path_to_bytes(location)
     for top, dirs, files in walk(location, ignored):
         if with_files:
             for f in files:
@@ -481,6 +501,10 @@ def copytree(src, dst):
     This function is similar to and derived from the Python shutil.copytree
     function. See fileutils.py.ABOUT for details.
     """
+    if on_linux:
+        src = path_to_bytes(src)
+        dst = path_to_bytes(dst)
+
     if not filetype.is_readable(src):
         chmod(src, R, recurse=False)
 
@@ -526,6 +550,10 @@ def copyfile(src, dst):
     Similar to and derived from Python shutil module. See fileutils.py.ABOUT
     for details.
     """
+    if on_linux:
+        src = path_to_bytes(src)
+        dst = path_to_bytes(dst)
+
     if not filetype.is_regular(src):
         return
     if not filetype.is_readable(src):
@@ -543,6 +571,10 @@ def copytime(src, dst):
     Similar to and derived from Python shutil module. See fileutils.py.ABOUT
     for details.
     """
+    if on_linux:
+        src = path_to_bytes(src)
+        dst = path_to_bytes(dst)
+
     errors = []
     st = os.stat(src)
     if hasattr(os, 'utime'):
@@ -576,6 +608,8 @@ def chmod(location, flags, recurse=False):
     """
     if not location or not os.path.exists(location):
         return
+    if on_linux:
+        location = path_to_bytes(location)
 
     location = os.path.abspath(location)
 
@@ -604,6 +638,8 @@ def chmod_tree(location, flags):
     """
     Update permissions recursively in a directory tree `location`.
     """
+    if on_linux:
+        location = path_to_bytes(location)
     if filetype.is_dir(location):
         for top, dirs, files in walk(location):
             for d in dirs:
@@ -620,6 +656,8 @@ def _rm_handler(function, path, excinfo):  # @UnusedVariable
     shutil.rmtree handler invoked on error when deleting a directory tree.
     This retries deleting once before giving up.
     """
+    if on_linux:
+        path = path_to_bytes(path)
     if function == os.rmdir:
         try:
             chmod(path, RW, recurse=True)
@@ -647,6 +685,9 @@ def delete(location, _err_handler=_rm_handler):
     """
     if not location:
         return
+
+    if on_linux:
+        location = path_to_bytes(location)
 
     if os.path.exists(location) or filetype.is_broken_link(location):
         chmod(os.path.dirname(location), RW, recurse=False)
