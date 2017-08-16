@@ -40,6 +40,8 @@ from commoncode.fileutils import as_posixpath
 from commoncode import timeutils
 
 from scancode import scans_cache_dir
+from commoncode.system import on_linux
+from commoncode.fileutils import path_to_bytes
 
 """
 Cache scan results for a file or directory disk using a file-based cache.
@@ -81,6 +83,9 @@ if TRACE:
 
     def logger_debug(*args):
         return logger.debug(' '.join(isinstance(a, basestring) and a or repr(a) for a in args))
+
+
+EOL = b'\n' if on_linux else '\n'
 
 
 def get_scans_cache_class(cache_dir=scans_cache_dir):
@@ -185,8 +190,10 @@ class ScanFileCache(object):
         Log file path in the cache logfile_fd **opened** file descriptor.
         """
         # we dump one path per line.
+        if on_linux:
+            path = path_to_bytes(path)
         logfile_fd.write(path)
-        logfile_fd.write('\n')
+        logfile_fd.write(EOL)
 
     def get_cached_info_path(self, path):
         """

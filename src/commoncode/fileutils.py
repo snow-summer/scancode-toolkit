@@ -25,6 +25,7 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 from __future__ import print_function
+from commoncode.text import as_unicode
 
 # Python 2 and 3 support
 try:
@@ -35,7 +36,6 @@ except NameError:
     # Python 3
     unicode = str
 
-
 import codecs
 import errno
 import logging
@@ -44,13 +44,16 @@ import ntpath
 import posixpath
 import shutil
 import stat
+import sys
 import tempfile
 
-from commoncode import system
-from commoncode import text
+from builtins import bytes as future_bytes
+
 from commoncode import filetype
 from commoncode.filetype import is_rwx
-
+from commoncode import system
+from commoncode.system import on_linux
+from commoncode import text
 
 # this exception is not available on posix
 try:
@@ -60,6 +63,15 @@ except NameError:
 
 DEBUG = False
 logger = logging.getLogger(__name__)
+
+FS_ENCODING = sys.getfilesystemencoding() or sys.getdefaultencoding()
+
+# Paths can only be sanely handled as raw bytes on Linux
+PATH_TYPE = bytes if on_linux else unicode
+POSIX_PATH_SEP = b'/' if on_linux else '/'
+WIN_PATH_SEP = b'\\' if on_linux else '\\'
+EMPTY_STRING = b'' if on_linux else ''
+DOT = b'.' if on_linux else '.'
 
 """
 File, paths and directory utility functions.
@@ -176,6 +188,44 @@ def read_text_file(location, universal_new_lines=True):
 
 # TODO: move these functions to paths.py
 
+def path_to_unicode(path):
+    """
+    Return a path string `p` as a unicode string.
+    On Linux this is using surrogateescape decoding.
+    """
+    p = path
+    if isinstance(p, unicode):
+        return p
+
+    if on_linux:
+        p = future_bytes(p)
+        try:
+            return p.decode(FS_ENCODING, 'surrogateescape')
+
+        except UnicodeDecodeError:
+            return as_unicode(path)
+    else:
+        try:
+            return p.decode(FS_ENCODING)
+        except UnicodeDecodeError:
+                return as_unicode(path)
+
+
+def path_to_bytes(path):
+    """
+    Return a `path` string as a byte string using the filesystem encoding.
+    On Linux this is using surrogateescape encoding.
+    """
+    if isinstance(path, bytes):
+        return path
+
+    if on_linux:
+#         path = future_bytes(path)
+        return path.encode(FS_ENCODING, 'surrogateescape')
+
+    return path.encode(FS_ENCODING)
+
+
 def is_posixpath(location):
     """
     Return True if the `location` path is likely a POSIX-like path using POSIX path
@@ -184,8 +234,8 @@ def is_posixpath(location):
     Return False if the `location` path is likely a Windows-like path using backslash
     as path separators (e.g. "\").
     """
-    has_slashes = '/' in location
-    has_backslashes = '\\' in location
+    has_slashes = POSIX_PATH_SEP in location
+    has_backslashes = WIN_PATH_SEP in location
     # windows paths with drive
     if location:
         drive, _ = ntpath.splitdrive(location)
@@ -206,7 +256,7 @@ def as_posixpath(location):
     `location` path. This converts Windows paths to look like POSIX paths: Python
     accepts gracefully POSIX paths on Windows.
     """
-    return location.replace(ntpath.sep, posixpath.sep)
+    return location.replace(WIN_PATH_SEP, POSIX_PATH_SEP)
 
 
 def as_winpath(location):
@@ -214,7 +264,7 @@ def as_winpath(location):
     Return a Windows-like path using Windows path separators (backslash or "\") for a
     `location` path.
     """
-    return location.replace(posixpath.sep, ntpath.sep)
+    return location.replace(POSIX_PATH_SEP, WIN_PATH_SEP)
 
 
 def split_parent_resource(path, force_posix=False):
@@ -223,7 +273,7 @@ def split_parent_resource(path, force_posix=False):
     """
     use_posix = force_posix or is_posixpath(path)
     splitter = use_posix and posixpath or ntpath
-    path = path.rstrip('/\\')
+    path = path.rstrip(POSIX_PATH_SEP + WIN_PATH_SEP)
     return splitter.split(path)
 
 
@@ -233,7 +283,7 @@ def resource_name(path, force_posix=False):
     is the last path segment.
     """
     _left, right = split_parent_resource(path, force_posix)
-    return right or  ''
+    return right or EMPTY_STRING
 
 
 def file_name(path, force_posix=False):
@@ -249,8 +299,8 @@ def parent_directory(path, force_posix=False):
     """
     left, _right = split_parent_resource(path, force_posix)
     use_posix = force_posix or is_posixpath(path)
-    sep = use_posix and '/' or '\\'
-    trail = sep if left != sep else ''
+    sep = POSIX_PATH_SEP if use_posix else WIN_PATH_SEP
+    trail = sep if left != sep else EMPTY_STRING
     return left + trail
 
 
@@ -295,26 +345,26 @@ def splitext(path, force_posix=False):
     >>> expected = 'archive', '.tar.gz'
     >>> assert expected == splitext('archive.tar.gz')
     """
-    base_name = ''
-    extension = ''
+    base_name = EMPTY_STRING
+    extension = EMPTY_STRING
     if not path:
         return base_name, extension
 
     ppath = as_posixpath(path)
     name = resource_name(path, force_posix)
-    name = name.strip('\\/')
-    if ppath.endswith('/'):
+    name = name.strip(POSIX_PATH_SEP + WIN_PATH_SEP)
+    if ppath.endswith(POSIX_PATH_SEP):
         # directories never have an extension
         base_name = name
-        extension = ''
-    elif name.startswith('.') and '.' not in name[1:]:
+        extension = EMPTY_STRING
+    elif name.startswith(DOT) and DOT not in name[1:]:
         # .dot files base name is the full name and they do not have an extension
         base_name = name
-        extension = ''
+        extension = EMPTY_STRING
     else:
         base_name, extension = posixpath.splitext(name)
         # handle composed extensions of tar.gz, bz, zx,etc
-        if base_name.endswith('.tar'):
+        if base_name.endswith(b'.tar' if on_linux else '.tar'):
             base_name, extension2 = posixpath.splitext(base_name)
             extension = extension2 + extension
     return base_name, extension

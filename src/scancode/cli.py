@@ -33,6 +33,7 @@ from scancode.pool import get_pool
 import codecs
 from collections import OrderedDict
 from functools import partial
+from itertools import imap
 import os
 from os.path import expanduser
 from os.path import abspath
@@ -47,7 +48,9 @@ from click.termui import style
 
 from commoncode import filetype
 from commoncode import fileutils
+from commoncode.fileutils import path_to_unicode
 from commoncode import ignore
+from commoncode.system import on_linux
 
 import plugincode.output
 
@@ -317,7 +320,7 @@ def validate_exclusive(ctx, exclusive_options):
 @click.pass_context
 
 # ensure that the input path is always Unicode
-@click.argument('input', metavar='<input>', type=click.Path(exists=True, readable=True, path_type=str))
+@click.argument('input', metavar='<input>', type=click.Path(exists=True, readable=True, path_type=fileutils.PATH_TYPE))
 @click.argument('output_file', default='-', metavar='<output_file>', type=click.File(mode='wb', lazy=False))
 
 # Note that click's 'default' option is set to 'false' here despite these being documented to be enabled by default in
@@ -481,7 +484,8 @@ def scan(input_path,
          scans_cache_class=None,
          strip_root=False,
          full_root=False,
-         ignore=None):
+         ignore=None,
+         _use_multiprocessing=True):
     """
     Return a tuple of (files_count, scan_results, success) where
     scan_results is an iterable and success is a boolean.
@@ -489,10 +493,13 @@ def scan(input_path,
     Run each requested scan proper: each individual file scan is cached
     on disk to free memory. Then the whole set of scans is loaded from
     the cache and streamed at the end.
+
+    For debugging, with _use_multiprocessing as False does not use
+    multiprocessing.
     """
     assert scans_cache_class
     scan_summary = OrderedDict()
-    scan_summary['scanned_path'] = input_path
+    scan_summary['scanned_path'] = fileutils.path_to_unicode(input_path)
     scan_summary['processes'] = processes
 
     # Display scan start details
@@ -531,13 +538,20 @@ def scan(input_path,
     logfile_path = scans_cache_class().cache_files_log
     paths_with_error = []
     files_count = 0
-    with codecs.open(logfile_path, 'w', encoding='utf-8') as logfile_fd:
+
+    if on_linux:
+        enc = {}
+        mode = 'wb'
+    else:
+        enc = dict(encoding='utf-8')
+        mode = 'w'
+
+    with codecs.open(logfile_path, mode, **enc) as logfile_fd:
 
         logged_resources = _resource_logger(logfile_fd, resources)
 
         scanit = partial(_scanit, scanners=scanners, scans_cache_class=scans_cache_class,
                          diag=diag, timeout=timeout)
-
 
         max_file_name_len = compute_fn_max_len()
         # do not display a file name in progress bar if there is less than 5 chars available.
@@ -546,8 +560,11 @@ def scan(input_path,
             # Using chunksize is documented as much more efficient in the Python doc.
             # Yet "1" still provides a better and more progressive feedback.
             # With imap_unordered, results are returned as soon as ready and out of order.
-            scanned_files = pool.imap_unordered(scanit, logged_resources, chunksize=1)
-            pool.close()
+            if _use_multiprocessing:
+                scanned_files = pool.imap_unordered(scanit, logged_resources, chunksize=1)
+                pool.close()
+            else:
+                scanned_files = imap(scanit, logged_resources)
 
             if not quiet:
                 echo_stderr('Scanning files...', fg='green')
@@ -558,7 +575,7 @@ def scan(input_path,
                     return ''
                 _scan_success, _scanned_path = item
                 if verbose:
-                    _progress_line = _scanned_path
+                    _progress_line = path_to_unicode(_scanned_path)
                 else:
                     _progress_line = fixed_width_file_name(_scanned_path, max_file_name_len)
                 return style('Scanned: ') + style(_progress_line, fg=_scan_success and 'green' or 'red')
@@ -582,15 +599,18 @@ def scan(input_path,
                         pool.terminate()
                         break
         finally:
-            # ensure the pool is really dead to work around a Python 2.7.3 bug:
-            # http://bugs.python.org/issue15101
-            pool.terminate()
+            if _use_multiprocessing:
+                # ensure the pool is really dead to work around a Python 2.7.3 bug:
+                # http://bugs.python.org/issue15101
+                pool.terminate()
 
     # TODO: add stats to results somehow
 
     # Compute stats
     ##########################
     scan_summary['files_count'] = files_count
+    if on_linux:
+        paths_with_error = [path_to_unicode(p) for p in paths_with_error]
     scan_summary['files_with_errors'] = paths_with_error
     total_time = time() - scan_start
     scanning_time = total_time - indexing_time
@@ -676,8 +696,14 @@ def _scanit(paths, scanners, scans_cache_class, diag, timeout=DEFAULT_TIMEOUT):
     abs_path, rel_path = paths
     # always fetch infos and cache.
     infos = OrderedDict()
+
     infos['path'] = rel_path
     infos.update(scan_infos(abs_path, diag=diag))
+
+    if on_linux:
+        # convert path parts to unicode at last
+        for key in ('path', 'name', 'base_name', 'extension'):
+            infos[key] = path_to_unicode(infos[key])
 
     success = True
     scans_cache = scans_cache_class()
