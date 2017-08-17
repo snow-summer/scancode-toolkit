@@ -143,7 +143,7 @@ setup(
         'bz2file >= 0.98',
 
         # commoncode
-        'path.py >= 10.3.0, < 10.4.0',
+        'future >= 0.16.0, < 0.17.0',
         'text-unidecode >= 1.0, < 2.0',
 
         # licensedcode
