@@ -34,8 +34,6 @@ import os
 import shutil
 import sys
 import filecmp
-import posixpath
-import ntpath
 import zipfile
 import tarfile
 import stat
