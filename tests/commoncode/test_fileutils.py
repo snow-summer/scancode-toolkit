@@ -473,7 +473,7 @@ class TestFileUtils(FileBasedTesting):
         expected = []
         assert expected == result
 
-    def test_fileutils_resource_iter_can_walk_unicode_path(self):
+    def test_fileutils_resource_iter_can_walk_unicode_path_with_zip(self):
         test_dir = self.extract_test_zip('fileutils/walk/unicode.zip')
         test_dir = join(test_dir, 'unicode')
         EMPTY_STRING = ''
@@ -494,14 +494,6 @@ class TestFileUtils(FileBasedTesting):
             ]
         assert expected == result
 
-    def test_resource_iter_can_walk_non_utf8_path_from_bytes_path(self):
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
-        test_dir = join(test_dir, 'non_unicode')
-
-        result = list(fileutils.resource_iter(test_dir))
-        assert 1 == len(result)
-
-    # this test is failing
     def test_resource_iter_can_walk_non_utf8_path_from_unicode_path(self):
         test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
         test_dir = join(test_dir, 'non_unicode')
@@ -511,14 +503,6 @@ class TestFileUtils(FileBasedTesting):
         result = list(fileutils.resource_iter(test_dir))
         assert 1 == len(result)
 
-    def test_walk_can_walk_non_utf8_path_from_bytes_path(self):
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
-        test_dir = join(test_dir, 'non_unicode')
-
-        result = list(fileutils.walk(test_dir))
-        assert 1 == len(result)
-
-    # this test is failing
     def test_walk_can_walk_non_utf8_path_from_unicode_path(self):
         test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
         test_dir = join(test_dir, 'non_unicode')
@@ -528,14 +512,6 @@ class TestFileUtils(FileBasedTesting):
         result = list(fileutils.walk(test_dir))
         assert 1 == len(result)
 
-    def test_file_iter_can_walk_non_utf8_path_from_bytes_path(self):
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
-        test_dir = join(test_dir, 'non_unicode')
-
-        result = list(fileutils.file_iter(test_dir))
-        assert 1 == len(result)
-
-    # this test is failing
     def test_file_iter_can_walk_non_utf8_path_from_unicode_path(self):
         test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
         test_dir = join(test_dir, 'non_unicode')
@@ -545,7 +521,6 @@ class TestFileUtils(FileBasedTesting):
         result = list(fileutils.file_iter(test_dir))
         assert 1 == len(result)
 
-    # this test is failing
     def test_os_walk_can_walk_non_utf8_path_from_unicode_path(self):
         test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
         test_dir = join(test_dir, 'non_unicode')
@@ -554,14 +529,6 @@ class TestFileUtils(FileBasedTesting):
             test_dir = unicode(test_dir)
         result = list(os.walk(test_dir))
         assert 1 == len(result)
-
-    def test_os_walk_can_walk_non_utf8_path_from_bytes_path(self):
-        test_dir = self.extract_test_tar('fileutils/walk_non_utf8/non_unicode.tgz')
-        test_dir = join(test_dir, 'non_unicode')
-
-        result = list(os.walk(test_dir))
-        assert 1 == len(result)
-
 
 
 class TestBaseName(FileBasedTesting):
