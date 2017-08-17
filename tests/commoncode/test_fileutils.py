@@ -40,6 +40,7 @@ from commoncode import filetype
 from commoncode import fileutils
 from commoncode.fileutils import as_posixpath
 from commoncode.system import on_linux
+from commoncode.system import on_mac
 
 
 class TestPermissions(FileBasedTesting):
@@ -441,7 +442,10 @@ class TestFileUtils(FileBasedTesting):
             '/walk/unicode.zip'
         ]
         assert sorted(expected) == sorted(result)
-        assert all(isinstance(p, bytes) for p in result)
+        if on_linux:
+            assert all(isinstance(p, bytes) for p in result)
+        else:
+            assert all(isinstance(p, unicode) for p in result)
 
     def test_resource_iter_return_unicode_on_unicode_input(self):
         test_dir = self.get_test_loc('fileutils/walk')
@@ -476,21 +480,31 @@ class TestFileUtils(FileBasedTesting):
     def test_fileutils_resource_iter_can_walk_unicode_path_with_zip(self):
         test_dir = self.extract_test_zip('fileutils/walk/unicode.zip')
         test_dir = join(test_dir, 'unicode')
-        EMPTY_STRING = ''
-        if not on_linux:
+
+        if on_linux:
+            EMPTY_STRING = ''
+        else:
             test_dir = unicode(test_dir)
             EMPTY_STRING = u''
+
         result = sorted([p.replace(test_dir, EMPTY_STRING) for p in fileutils.resource_iter(test_dir)])
-        expected = [
-            '/2.csv',
-            '/a',
-            '/a/gru\xcc\x88n.png'
-        ]
-        if not on_linux:
+        if on_linux:
+            expected = [
+                '/2.csv',
+                '/a',
+                '/a/gru\xcc\x88n.png'
+            ]
+        elif on_mac:
             expected = [
                 u'/2.csv',
                 u'/a',
                 u'/a/gru\u0308n.png'
+            ]
+        elif on_windows:
+            expected = [
+                u'\\2.csv',
+                u'\\a',
+                u'\\a\\gru\u0308n.png'
             ]
         assert expected == result
 
