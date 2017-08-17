@@ -154,9 +154,10 @@ class FileDrivenTesting(object):
         location to a test file or directory for this path. Copy to a temp
         test location if `copy` is True.
         """
+        test_data_dir = self.test_data_dir
         if on_linux:
             test_path = path_to_bytes(test_path)
-            test_data_dir = path_to_bytes(self.test_data_dir)
+            test_data_dir = path_to_bytes(test_data_dir)
 
         if debug:
             import inspect
