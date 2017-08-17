@@ -281,18 +281,15 @@ def extract_tar(location, target_dir, verbatim=False, *args, **kwargs):
     Extract a tar archive at location in the target_dir directory.
     If `verbatim` is True preserve the permissions.
     """
-    if on_linux:
-        location = path_to_bytes(location)
-        target_dir = path_to_bytes(target_dir)
+    # always for using bytes for paths on all OSses... tar seems to use bytes internally
+    # and get confused otherwise
+    location = path_to_bytes(location)
+    target_dir = path_to_bytes(target_dir)
 
     with open(location, 'rb') as input_tar:
         tar = None
         try:
-            if on_linux:
-                tar = tarfile.open(fileobj=input_tar, encoding='ascii')
-            else:
-                tar = tarfile.open(fileobj=input_tar)
-
+            tar = tarfile.open(fileobj=input_tar)
             tarinfos = tar.getmembers()
             to_extract = []
             for tarinfo in tarinfos:
