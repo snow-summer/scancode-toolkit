@@ -370,17 +370,34 @@ def test_scan_works_with_multiple_processes():
     assert sorted(res1['files']) == sorted(res3['files'])
 
 
-def test_scan_works_with_no_processes_in_single_threaded_mode():
+def test_scan_works_with_no_processes_without_timeout():
     test_dir = test_env.get_test_loc('multiprocessing', copy=True)
 
-    # run the same scan with zero or one process
+    # run the same scan with one or two processes and no timeout
     result_file_0 = test_env.get_temp_file('json')
-    result0 = run_scan_click([ '--copyright', '--processes', '0', '--format', 'json', test_dir, result_file_0])
+    result0 = run_scan_click([ '--copyright', '--processes', '1', '--timeout', '0', '--format', 'json', test_dir, result_file_0])
     assert result0.exit_code == 0
     assert 'Disabling multi-processing and multi-threading...' in result0.output
 
     result_file_1 = test_env.get_temp_file('json')
-    result1 = run_scan_click([ '--copyright', '--processes', '1', '--format', 'json', test_dir, result_file_1])
+    result1 = run_scan_click([ '--copyright', '--processes', '2', '--timeout', '0','--format', 'json', test_dir, result_file_1])
+    assert result1.exit_code == 0
+    res0 = json.loads(open(result_file_0).read())
+    res1 = json.loads(open(result_file_1).read())
+    assert sorted(res0['files']) == sorted(res1['files'])
+
+
+def test_scan_works_with_no_processes_with_default_timeout():
+    test_dir = test_env.get_test_loc('multiprocessing', copy=True)
+
+    # run the same scan with one or two processes and a timeout
+    result_file_0 = test_env.get_temp_file('json')
+    result0 = run_scan_click([ '--copyright', '--processes', '1', '--format', 'json', test_dir, result_file_0])
+    assert result0.exit_code == 0
+    assert 'Disabling multi-processing and multi-threading...' in result0.output
+
+    result_file_1 = test_env.get_temp_file('json')
+    result1 = run_scan_click([ '--copyright', '--processes', '2', '--format', 'json', test_dir, result_file_1])
     assert result1.exit_code == 0
     res0 = json.loads(open(result_file_0).read())
     res1 = json.loads(open(result_file_1).read())

@@ -166,7 +166,7 @@ def fake_interruptible(func, args=None, kwargs=None, timeout=DEFAULT_TIMEOUT):
     """
     Fake, non-interruptible, using no threads and no signals
     implementation used for debugging. This ignores the timeout and just
-    the function as-is.
+    runs the function as-is.
     """
 
     try:

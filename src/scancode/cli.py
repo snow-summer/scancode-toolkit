@@ -43,6 +43,7 @@ import traceback
 from types import GeneratorType
 
 import click
+from click.types import IntRange
 click.disable_unicode_literals_warning = True
 from click.termui import style
 
@@ -376,7 +377,7 @@ def validate_exclusive(ctx, exclusive_options):
 @click.option('--quiet', is_flag=True, default=False, help='Do not print summary or progress messages.', group=OUTPUT, cls=ScanOption)
 
 @click.help_option('-h', '--help', group=CORE, cls=ScanOption)
-@click.option('-n', '--processes', is_flag=False, default=1, type=int, show_default=True, help='Scan <input> using n parallel processes.', group=CORE, cls=ScanOption)
+@click.option('-n', '--processes', is_flag=False, default=1, type=IntRange(1,), metavar='<number>', show_default=True, help='Scan using <number> of parallel processes.', group=CORE, cls=ScanOption)
 @click.option('--examples', is_flag=True, is_eager=True, callback=print_examples, help=('Show command examples and exit.'), group=CORE, cls=ScanOption)
 @click.option('--about', is_flag=True, is_eager=True, callback=print_about, help='Show information about ScanCode and licensing and exit.', group=CORE, cls=ScanOption)
 @click.option('--version', is_flag=True, is_eager=True, callback=print_version, help='Show the version and exit.', group=CORE, cls=ScanOption)
@@ -579,13 +580,13 @@ def scan(input_path,
         logged_resources = _resource_logger(logfile_fd, resources)
 
         scanit = partial(_scanit, scanners=scanners, scans_cache_class=scans_cache_class,
-                         diag=diag, timeout=timeout, processes=processes)
+                         diag=diag, timeout=timeout)
 
         max_file_name_len = compute_fn_max_len()
         # do not display a file name in progress bar if there is less than 5 chars available.
         display_fn = bool(max_file_name_len > 10)
         try:
-            if processes:
+            if processes > 1:
                 # maxtasksperchild helps with recycling processes in case of leaks
                 pool = get_pool(processes=processes, maxtasksperchild=1000)
                 # Using chunksize is documented as much more efficient in the Python doc.
@@ -594,7 +595,7 @@ def scan(input_path,
                 scanned_files = pool.imap_unordered(scanit, logged_resources, chunksize=1)
                 pool.close()
             else:
-                # no multiprocessing with processes=0
+                # no multiprocessing with processes=1
                 scanned_files = imap(scanit, logged_resources)
                 if not quiet:
                     echo_stderr('Disabling multi-processing and multi-threading...', fg='yellow')
@@ -719,7 +720,7 @@ def _resource_logger(logfile_fd, resources):
         yield posix_path, rel_path
 
 
-def _scanit(paths, scanners, scans_cache_class, diag, timeout=DEFAULT_TIMEOUT, processes=1):
+def _scanit(paths, scanners, scans_cache_class, diag, timeout=DEFAULT_TIMEOUT):
     """
     Run scans and cache results on disk. Return a tuple of (success, scanned relative
     path) where sucess is True on success, False on error. Note that this is really
@@ -740,10 +741,10 @@ def _scanit(paths, scanners, scans_cache_class, diag, timeout=DEFAULT_TIMEOUT, p
     scanner_functions = map(lambda t : t[0] and t[1], scanners.values())
     scanners = OrderedDict(zip(scanners.keys(), scanner_functions))
 
-    if processes:
+    if timeout > 0:
         interrupter = interruptible
     else:
-        # fake, non inteerrupting used for debugging when processes=0
+        # fake, non inteerrupting used for debugging when timeout==0
         interrupter = fake_interruptible
 
     if any(scanner_functions):
